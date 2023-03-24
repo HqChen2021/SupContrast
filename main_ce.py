@@ -6,7 +6,7 @@ import argparse
 import time
 import math
 
-import tensorboard_logger as tb_logger
+from torch.utils.tensorboard import SummaryWriter
 import torch
 import torch.backends.cudnn as cudnn
 from torchvision import transforms, datasets
@@ -15,7 +15,7 @@ from util import AverageMeter
 from util import adjust_learning_rate, warmup_learning_rate, accuracy
 from util import set_optimizer, save_model
 from networks.resnet_big import SupCEResNet
-
+from dataset import CelebaLoader
 try:
     import apex
     from apex import amp, optimizers
@@ -36,7 +36,8 @@ def parse_option():
                         help='num of workers to use')
     parser.add_argument('--epochs', type=int, default=500,
                         help='number of training epochs')
-
+    parser.add_argument('--size', type=int, default=32,
+                        help='parameter for RandomResizedCrop')
     # optimization
     parser.add_argument('--learning_rate', type=float, default=0.2,
                         help='learning rate')
@@ -67,7 +68,7 @@ def parse_option():
     opt = parser.parse_args()
 
     # set the path according to the environment
-    opt.data_folder = './datasets/'
+    opt.data_folder = '../data/cifar10'
     opt.model_path = './save/SupCon/{}_models'.format(opt.dataset)
     opt.tb_path = './save/SupCon/{}_tensorboard'.format(opt.dataset)
 
@@ -128,7 +129,7 @@ def set_loader(opt):
     normalize = transforms.Normalize(mean=mean, std=std)
 
     train_transform = transforms.Compose([
-        transforms.RandomResizedCrop(size=32, scale=(0.2, 1.)),
+        transforms.RandomResizedCrop(size=opt.size, scale=(0.2, 1.)),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
         normalize,
@@ -153,6 +154,20 @@ def set_loader(opt):
         val_dataset = datasets.CIFAR100(root=opt.data_folder,
                                         train=False,
                                         transform=val_transform)
+    elif opt.dataset == 'celeba':
+        train_dataset = CelebaLoader(0,ta='3',
+                                     ta2='None',
+                                     sa='21',
+                                     sa2='None',
+                                     data_folder=opt.data_folder,
+                                     transform=train_transform)
+        val_dataset = CelebaLoader(2,ta='3',
+                                   ta2='None',
+                                   sa='21',
+                                   sa2='None',
+                                   data_folder=opt.data_folder,
+                                   transform=val_transform)
+
     else:
         raise ValueError(opt.dataset)
 
@@ -291,7 +306,7 @@ def main():
     optimizer = set_optimizer(opt, model)
 
     # tensorboard
-    logger = tb_logger.Logger(logdir=opt.tb_folder, flush_secs=2)
+    logger = SummaryWriter(log_dir=opt.tb_folder)
 
     # training routine
     for epoch in range(1, opt.epochs + 1):

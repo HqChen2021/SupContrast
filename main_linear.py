@@ -58,13 +58,13 @@ def parse_option():
     parser.add_argument('--warm', action='store_true',
                         help='warm-up for large batch training')
 
-    parser.add_argument('--ckpt', type=str, default='',
+    parser.add_argument('--ckpt', type=str, default='./save/ckpt_epoch_100.pth',
                         help='path to pre-trained model')
 
     opt = parser.parse_args()
 
     # set the path according to the environment
-    opt.data_folder = './datasets/'
+    opt.data_folder = '../data/cifar10'
 
     iterations = opt.lr_decay_epochs.split(',')
     opt.lr_decay_epochs = list([])
@@ -110,7 +110,7 @@ def set_model(opt):
     state_dict = ckpt['model']
 
     if torch.cuda.is_available():
-        if torch.cuda.device_count() > 1:
+        if torch.cuda.device_count() > 10:
             model.encoder = torch.nn.DataParallel(model.encoder)
         else:
             new_state_dict = {}
